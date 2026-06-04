@@ -1,103 +1,67 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz_data;
-import 'main.dart';
+import 'package:alarm/alarm.dart';
 
 class AlarmService {
-  static final _plugin = FlutterLocalNotificationsPlugin();
-
-  static const _alarmChannel = AndroidNotificationDetails(
-    'betta_alarms',
-    'Betta Alarms',
-    channelDescription: 'Wake-up alarms',
-    importance: Importance.max,
-    priority: Priority.max,
-    fullScreenIntent: true,
-    category: AndroidNotificationCategory.alarm,
-    visibility: NotificationVisibility.public,
-    playSound: true,
-    enableVibration: true,
-  );
-
-  static const _alarmDetails = NotificationDetails(
-    android: _alarmChannel,
-    iOS: DarwinNotificationDetails(
-      presentAlert: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.timeSensitive,
-    ),
-  );
-
   static const int _napAlarmId = 900001;
   static const int _sleepAlarmId = 900002;
 
-  static tz.Location get _loc {
-    tz_data.initializeTimeZones();
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    for (final loc in tz.timeZoneDatabase.locations.values) {
-      if (tz.TZDateTime.now(loc).timeZoneOffset.inMinutes == offsetMinutes) {
-        return loc;
-      }
-    }
-    return tz.UTC;
-  }
-
-  static Future<void> _schedule({
+  static AlarmSettings _buildSettings({
     required int id,
     required String title,
     required String body,
     required DateTime wakeAt,
-  }) async {
-    await _plugin.cancel(id: id);
-    // Always schedule inexact first (never throws), then try to upgrade to exact
-    Future<void> scheduleInexact() => _plugin.zonedSchedule(
+  }) {
+    return AlarmSettings(
       id: id,
-      title: title,
-      body: body,
-      scheduledDate: tz.TZDateTime.from(wakeAt, _loc),
-      notificationDetails: _alarmDetails,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-    );
-    try {
-      await _plugin.zonedSchedule(
-        id: id,
+      dateTime: wakeAt,
+      assetAudioPath: 'assets/alarm.mp3',
+      loopAudio: true,
+      vibrate: true,
+      warningNotificationOnKill: true,
+      androidFullScreenIntent: true,
+      notificationSettings: NotificationSettings(
         title: title,
         body: body,
-        scheduledDate: tz.TZDateTime.from(wakeAt, _loc),
-        notificationDetails: _alarmDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
-    } catch (_) {
-      await scheduleInexact();
-    }
+        stopButton: 'stop',
+      ),
+      volumeSettings: VolumeSettings.fade(
+        volume: 0.8,
+        fadeDuration: const Duration(seconds: 10),
+      ),
+    );
   }
 
   static Future<void> scheduleNap(DateTime wakeAt) async {
-    await _schedule(
-      id: _napAlarmId,
-      title: 'nap over',
-      body: 'time to wake up',
-      wakeAt: wakeAt,
+    await Alarm.stop(_napAlarmId);
+    await Alarm.set(
+      alarmSettings: _buildSettings(
+        id: _napAlarmId,
+        title: 'nap over',
+        body: 'time to wake up',
+        wakeAt: wakeAt,
+      ),
     );
   }
 
   static Future<void> cancelNap() async {
-    await _plugin.cancel(id: _napAlarmId);
+    await Alarm.stop(_napAlarmId);
   }
 
   static Future<void> scheduleSleepAlarm(
     DateTime wakeAt,
     String eventName,
   ) async {
-    await _schedule(
-      id: _sleepAlarmId,
-      title: 'wake up',
-      body: eventName.isNotEmpty ? 'next: $eventName' : 'good morning',
-      wakeAt: wakeAt,
+    await Alarm.stop(_sleepAlarmId);
+    await Alarm.set(
+      alarmSettings: _buildSettings(
+        id: _sleepAlarmId,
+        title: 'wake up',
+        body: eventName.isNotEmpty ? 'next: $eventName' : 'good morning',
+        wakeAt: wakeAt,
+      ),
     );
   }
 
   static Future<void> cancelSleepAlarm() async {
-    await _plugin.cancel(id: _sleepAlarmId);
+    await Alarm.stop(_sleepAlarmId);
   }
 }

@@ -1,4 +1,4 @@
-package com.example.bettas_alarm
+package com.tgeiling.bettaalarm
 
 import io.flutter.embedding.android.FlutterActivity
 

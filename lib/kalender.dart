@@ -57,6 +57,34 @@ class _KalenderScreenState extends State<KalenderScreen> {
     return upcoming.isEmpty ? null : upcoming.first;
   }
 
+  String _dayHeaderLabel(DateTime day) {
+    final now = DateTime.now();
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
+    final isTomorrow =
+        day.year == now.year &&
+        day.month == now.month &&
+        day.day == now.day + 1;
+    final weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    final months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    if (isToday) return 'today · ${day.day} ${months[day.month - 1]}';
+    if (isTomorrow) return 'tomorrow · ${day.day} ${months[day.month - 1]}';
+    return '${weekdays[day.weekday - 1]} · ${day.day} ${months[day.month - 1]} ${day.year}';
+  }
+
   List<DateTime?> _buildCalendarDays() {
     final first = DateTime(_focused.year, _focused.month, 1);
     final last = DateTime(_focused.year, _focused.month + 1, 0);
@@ -247,6 +275,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
         ? _eventsForDay(_selectedDay!)
         : <AppEvent>[];
     final next = _nextEvent();
+    final shownDay = _selectedDay;
 
     return Scaffold(
       backgroundColor: AppColors.orange,
@@ -360,96 +389,114 @@ class _KalenderScreenState extends State<KalenderScreen> {
               ),
               const SizedBox(height: 8),
               const Divider(color: Colors.white24, thickness: 1),
+              if (shownDay != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _dayHeaderLabel(shownDay),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.3),
+                    fontSize: 20,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
               // Bottom section: selected day events or next event
               Expanded(
-                child: selectedEvs.isNotEmpty
-                    ? ListView(
-                        padding: const EdgeInsets.only(top: 6),
-                        children: selectedEvs
-                            .map(
-                              (e) => GestureDetector(
-                                onTap: () => _showEventDialog(e),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 0,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.white.withOpacity(0.1),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: selectedEvs.isNotEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.only(top: 6),
+                          children: selectedEvs
+                              .map(
+                                (e) => GestureDetector(
+                                  onTap: () => _showEventDialog(e),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 0,
+                                      vertical: 9,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.white.withOpacity(0.1),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        color: Colors.white.withOpacity(0.6),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        width: 52,
-                                        child: Text(
-                                          _fmtTime(e.dateTime),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          color: Colors.white.withOpacity(0.6),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        SizedBox(
+                                          width: 52,
+                                          child: Text(
+                                            _fmtTime(e.dateTime),
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(
+                                                0.35,
+                                              ),
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            e.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          e.place,
                                           style: TextStyle(
                                             color: Colors.white.withOpacity(
-                                              0.35,
+                                              0.3,
                                             ),
-                                            fontSize: 16,
+                                            fontSize: 14,
                                           ),
                                         ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          e.name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        e.place,
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.3),
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
+                              )
+                              .toList(),
+                        )
+                      : next != null
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                next.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            )
-                            .toList(),
-                      )
-                    : next != null
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              next.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 30,
-                                fontWeight: FontWeight.w500,
+                              Text(
+                                _fmtTime(next.dateTime),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.45),
+                                  fontSize: 24,
+                                ),
                               ),
-                            ),
-                            Text(
-                              _fmtTime(next.dateTime),
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.45),
-                                fontSize: 24,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox(),
+                            ],
+                          ),
+                        )
+                      : const SizedBox(),
+                ),
               ),
             ],
           ),

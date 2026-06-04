@@ -15,6 +15,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   final _noteCtrl = TextEditingController();
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
+  EventAlertMode _alertMode = EventAlertMode.notification;
   bool _autoAlarm = true;
   bool _customAlarm = false;
   Set<int> _customAlarmOffsets = {};
@@ -50,6 +51,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
+                  onPressed: () => Navigator.pop(context),
                   child: Text(
                     'cancel',
                     style: TextStyle(
@@ -58,17 +60,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       fontSize: 13,
                     ),
                   ),
-                  onPressed: () => Navigator.pop(context),
                 ),
                 CupertinoButton(
-                  child: const Text(
-                    'done',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'PixelifySans',
-                      fontSize: 13,
-                    ),
-                  ),
                   onPressed: () {
                     setState(
                       () => _time = TimeOfDay(
@@ -78,6 +71,14 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     );
                     Navigator.pop(context);
                   },
+                  child: const Text(
+                    'done',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'PixelifySans',
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -111,6 +112,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       place: _placeCtrl.text.trim().toLowerCase(),
       note: _noteCtrl.text.trim().toLowerCase(),
       dateTime: dt,
+      alertMode: _alertMode,
       autoAlarm: _autoAlarm,
       customAlarm: _customAlarm,
       customAlarmOffsets: _customAlarmOffsets.toList(),
@@ -200,6 +202,57 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
   }
 
+  Widget _alertModeRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'alert',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontFamily: 'PixelifySans',
+            ),
+          ),
+          Row(
+            children: EventAlertMode.values.map((mode) {
+              final selected = _alertMode == mode;
+              return GestureDetector(
+                onTap: () => setState(() => _alertMode = mode),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? Colors.white : Colors.transparent,
+                    border: Border.all(
+                      color: selected
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    mode.label,
+                    style: TextStyle(
+                      color: selected ? AppColors.brown : Colors.white,
+                      fontSize: 10,
+                      fontFamily: 'PixelifySans',
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _divider() =>
       Divider(color: Colors.white.withOpacity(0.12), thickness: 1);
 
@@ -219,11 +272,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'notify before event',
+                    'remind me',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.4),
                       fontSize: 10,
-                      letterSpacing: 1.5,
                       fontFamily: 'PixelifySans',
                     ),
                   ),
@@ -273,7 +325,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   }
 
   Widget _recurringPanel() {
-    final days = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'];
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
@@ -293,7 +345,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.4),
                       fontSize: 10,
-                      letterSpacing: 1.5,
                       fontFamily: 'PixelifySans',
                     ),
                   ),
@@ -485,14 +536,16 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     _field(_noteCtrl, 'note...'),
                     const SizedBox(height: 16),
                     _divider(),
+                    _alertModeRow(),
+                    _divider(),
                     _toggle(
-                      'auto alarm',
+                      'auto (15 min before)',
                       _autoAlarm,
                       (v) => setState(() => _autoAlarm = v),
                     ),
                     _divider(),
                     _toggle(
-                      'custom alarm',
+                      'custom offsets',
                       _customAlarm,
                       (v) => setState(() => _customAlarm = v),
                     ),

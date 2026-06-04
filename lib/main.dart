@@ -1,3 +1,4 @@
+import 'package:alarm/alarm.dart';
 import 'package:bettas_alarm/notification.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ void main() async {
       statusBarIconBrightness: Brightness.light,
     ),
   );
+  await Alarm.init();
   await NotificationService.init();
   runApp(const BettaAlarmApp());
 }
@@ -134,6 +136,35 @@ class AppColors {
   static const purple = Color(0xFF2A0050);
 }
 
+/// How a calendar event should alert the user.
+enum EventAlertMode { none, notification, alarm }
+
+extension EventAlertModeLabel on EventAlertMode {
+  String get label {
+    switch (this) {
+      case EventAlertMode.none:
+        return 'off';
+      case EventAlertMode.notification:
+        return 'notification';
+      case EventAlertMode.alarm:
+        return 'alarm';
+    }
+  }
+
+  String toJson() => name;
+
+  static EventAlertMode fromJson(String? value) {
+    switch (value) {
+      case 'notification':
+        return EventAlertMode.notification;
+      case 'alarm':
+        return EventAlertMode.alarm;
+      default:
+        return EventAlertMode.notification;
+    }
+  }
+}
+
 /// Predefined custom alarm offsets in minutes.
 class AlarmOffset {
   static const int min15 = 15;
@@ -161,11 +192,19 @@ class AppEvent {
   final String place;
   final String note;
   final DateTime dateTime;
+
+  /// Whether the 15-min-before auto-reminder is enabled.
   final bool autoAlarm;
+
+  /// Whether custom offset reminders are enabled.
   final bool customAlarm;
-  final List<int> customAlarmOffsets; // minutes before event
+  final List<int> customAlarmOffsets;
+
   final bool recurring;
-  final List<int> recurringDays; // 1=Mon … 7=Sun
+  final List<int> recurringDays;
+
+  /// Controls how event reminders alert: none / notification / alarm.
+  final EventAlertMode alertMode;
 
   const AppEvent({
     required this.name,
@@ -177,7 +216,34 @@ class AppEvent {
     this.customAlarmOffsets = const [],
     this.recurring = false,
     this.recurringDays = const [],
+    this.alertMode = EventAlertMode.notification,
   });
+
+  AppEvent copyWith({
+    String? name,
+    String? place,
+    String? note,
+    DateTime? dateTime,
+    bool? autoAlarm,
+    bool? customAlarm,
+    List<int>? customAlarmOffsets,
+    bool? recurring,
+    List<int>? recurringDays,
+    EventAlertMode? alertMode,
+  }) {
+    return AppEvent(
+      name: name ?? this.name,
+      place: place ?? this.place,
+      note: note ?? this.note,
+      dateTime: dateTime ?? this.dateTime,
+      autoAlarm: autoAlarm ?? this.autoAlarm,
+      customAlarm: customAlarm ?? this.customAlarm,
+      customAlarmOffsets: customAlarmOffsets ?? this.customAlarmOffsets,
+      recurring: recurring ?? this.recurring,
+      recurringDays: recurringDays ?? this.recurringDays,
+      alertMode: alertMode ?? this.alertMode,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'name': name,
@@ -189,6 +255,7 @@ class AppEvent {
     'customAlarmOffsets': customAlarmOffsets,
     'recurring': recurring,
     'recurringDays': recurringDays,
+    'alertMode': alertMode.toJson(),
   };
 
   factory AppEvent.fromJson(Map<String, dynamic> json) => AppEvent(
@@ -196,7 +263,7 @@ class AppEvent {
     place: json['place'] as String,
     note: json['note'] as String,
     dateTime: DateTime.parse(json['dateTime'] as String),
-    autoAlarm: json['autoAlarm'] as bool,
+    autoAlarm: json['autoAlarm'] as bool? ?? true,
     customAlarm: json['customAlarm'] as bool? ?? false,
     customAlarmOffsets:
         (json['customAlarmOffsets'] as List<dynamic>?)
@@ -209,5 +276,6 @@ class AppEvent {
             ?.map((e) => e as int)
             .toList() ??
         [],
+    alertMode: EventAlertModeLabel.fromJson(json['alertMode'] as String?),
   );
 }

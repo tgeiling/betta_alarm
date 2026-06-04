@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.bettas_alarm"
+    namespace = "com.tgeiling.bettaalarm"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.bettas_alarm"
+        applicationId = "com.tgeiling.bettaalarm"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
