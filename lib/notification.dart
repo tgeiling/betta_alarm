@@ -13,10 +13,16 @@ class NotificationService {
       'betta_alarm',
       'Betta Alarm',
       channelDescription: 'Event reminders',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
   );
 
   static const _recurringDetails = NotificationDetails(
@@ -24,23 +30,21 @@ class NotificationService {
       'betta_alarm_recurring',
       'Betta Recurring',
       channelDescription: 'Recurring event reminders',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
   );
 
   static Future<void> init() async {
     tz_data.initializeTimeZones();
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    tz.Location? match;
-    for (final loc in tz.timeZoneDatabase.locations.values) {
-      if (tz.TZDateTime.now(loc).timeZoneOffset.inMinutes == offsetMinutes) {
-        match = loc;
-        break;
-      }
-    }
-    _location = match ?? tz.UTC;
+    _location = _resolveLocalTimezone();
     tz.setLocalLocation(_location!);
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -49,44 +53,79 @@ class NotificationService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
+    // v21: initialize uses named `settings:` param
     await _plugin.initialize(
       settings: const InitializationSettings(android: android, iOS: ios),
     );
+
+    // Request permissions on Android 13+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+
+    // Request exact alarm permission on Android 12+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestExactAlarmsPermission();
+  }
+
+  static tz.Location _resolveLocalTimezone() {
+    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
+    for (final loc in tz.timeZoneDatabase.locations.values) {
+      if (tz.TZDateTime.now(loc).timeZoneOffset.inMinutes == offsetMinutes) {
+        return loc;
+      }
+    }
+    return tz.UTC;
   }
 
   static tz.Location get _loc {
     if (_location != null) return _location!;
-    tz_data.initializeTimeZones();
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    for (final loc in tz.timeZoneDatabase.locations.values) {
-      if (tz.TZDateTime.now(loc).timeZoneOffset.inMinutes == offsetMinutes) {
-        _location = loc;
-        return loc;
-      }
-    }
-    _location = tz.UTC;
-    return tz.UTC;
+    _location = _resolveLocalTimezone();
+    return _location!;
   }
 
   static Future<void> scheduleForEvent(AppEvent event) async {
     await cancelForEvent(event);
-
     if (event.alertMode == EventAlertMode.none) return;
 
-    final eventDt = event.dateTime;
     final idBase = _idBase(event);
 
     if (event.alertMode == EventAlertMode.alarm) {
       await _scheduleAlarmForEvent(event, idBase);
-      return;
+    } else {
+      await _scheduleNotificationsForEvent(event, idBase);
+    }
+  }
+
+  static Future<void> _scheduleNotificationsForEvent(
+    AppEvent event,
+    int idBase,
+  ) async {
+    final eventDt = event.dateTime;
+    final now = DateTime.now();
+
+    // Always fire AT the event time (slot idBase)
+    if (eventDt.isAfter(now)) {
+      await _scheduleOnce(
+        id: idBase,
+        title: event.name,
+        body: event.place.isNotEmpty ? event.place : 'now',
+        scheduledDate: eventDt,
+        details: _notifDetails,
+      );
     }
 
-    // notification mode
+    // Auto 15-min-before (slot idBase + 50)
     if (event.autoAlarm) {
       final notifyAt = eventDt.subtract(const Duration(minutes: 15));
-      if (notifyAt.isAfter(DateTime.now())) {
+      if (notifyAt.isAfter(now)) {
         await _scheduleOnce(
-          id: idBase,
+          id: idBase + 50,
           title: event.name,
           body: 'in 15 min${event.place.isNotEmpty ? ' · ${event.place}' : ''}',
           scheduledDate: notifyAt,
@@ -95,11 +134,12 @@ class NotificationService {
       }
     }
 
+    // Custom offsets (slots idBase+1 … idBase+6)
     if (event.customAlarm) {
       for (int i = 0; i < event.customAlarmOffsets.length; i++) {
         final offset = event.customAlarmOffsets[i];
         final notifyAt = eventDt.subtract(Duration(minutes: offset));
-        if (notifyAt.isAfter(DateTime.now())) {
+        if (notifyAt.isAfter(now)) {
           await _scheduleOnce(
             id: idBase + 1 + i,
             title: event.name,
@@ -111,6 +151,7 @@ class NotificationService {
       }
     }
 
+    // Recurring weekly (slots idBase+100+weekday)
     if (event.recurring && event.recurringDays.isNotEmpty) {
       for (final day in event.recurringDays) {
         await _scheduleWeekly(
@@ -127,13 +168,27 @@ class NotificationService {
 
   static Future<void> _scheduleAlarmForEvent(AppEvent event, int idBase) async {
     final eventDt = event.dateTime;
+    final now = DateTime.now();
 
+    // Always fire AT the event time (slot idBase)
+    if (eventDt.isAfter(now)) {
+      await alarm_pkg.Alarm.set(
+        alarmSettings: _buildAlarmSettings(
+          id: idBase,
+          title: event.name,
+          body: event.place.isNotEmpty ? event.place : 'now',
+          wakeAt: eventDt,
+        ),
+      );
+    }
+
+    // Auto 15-min-before (slot idBase + 50)
     if (event.autoAlarm) {
       final ringAt = eventDt.subtract(const Duration(minutes: 15));
-      if (ringAt.isAfter(DateTime.now())) {
+      if (ringAt.isAfter(now)) {
         await alarm_pkg.Alarm.set(
           alarmSettings: _buildAlarmSettings(
-            id: idBase,
+            id: idBase + 50,
             title: event.name,
             body:
                 'in 15 min${event.place.isNotEmpty ? ' · ${event.place}' : ''}',
@@ -143,11 +198,12 @@ class NotificationService {
       }
     }
 
+    // Custom offsets (slots idBase+1 … idBase+6)
     if (event.customAlarm) {
       for (int i = 0; i < event.customAlarmOffsets.length; i++) {
         final offset = event.customAlarmOffsets[i];
         final ringAt = eventDt.subtract(Duration(minutes: offset));
-        if (ringAt.isAfter(DateTime.now())) {
+        if (ringAt.isAfter(now)) {
           await alarm_pkg.Alarm.set(
             alarmSettings: _buildAlarmSettings(
               id: idBase + 1 + i,
@@ -167,13 +223,13 @@ class NotificationService {
     required String body,
     required DateTime wakeAt,
   }) {
+    // alarm ^5.x: warningNotificationOnKill was removed — do not include it
     return alarm_pkg.AlarmSettings(
       id: id,
       dateTime: wakeAt,
       assetAudioPath: 'assets/alarm.mp3',
       loopAudio: true,
       vibrate: true,
-      warningNotificationOnKill: true,
       androidFullScreenIntent: true,
       notificationSettings: alarm_pkg.NotificationSettings(
         title: title,
@@ -189,7 +245,9 @@ class NotificationService {
 
   static Future<void> cancelForEvent(AppEvent event) async {
     final idBase = _idBase(event);
+    // v21: cancel() uses named `id:` param
     await _plugin.cancel(id: idBase);
+    await _plugin.cancel(id: idBase + 50);
     for (int i = 1; i <= 6; i++) {
       await _plugin.cancel(id: idBase + i);
     }
@@ -197,6 +255,7 @@ class NotificationService {
       await _plugin.cancel(id: idBase + 100 + day);
     }
     await alarm_pkg.Alarm.stop(idBase);
+    await alarm_pkg.Alarm.stop(idBase + 50);
     for (int i = 1; i <= 6; i++) {
       await alarm_pkg.Alarm.stop(idBase + i);
     }
@@ -211,6 +270,8 @@ class NotificationService {
   }) async {
     final tzDate = tz.TZDateTime.from(scheduledDate, _loc);
     try {
+      // v21: all named params; NotificationDetails is positional (3rd arg after body)
+      // but the actual v21 signature has it as named `notificationDetails:`
       await _plugin.zonedSchedule(
         id: id,
         title: title,
@@ -278,7 +339,23 @@ class NotificationService {
     }
   }
 
-  static int _idBase(AppEvent event) =>
-      (event.name.hashCode ^ event.dateTime.millisecondsSinceEpoch).abs() %
-      0x7FFFF;
+  static Future<void> debugTestNotification() async {
+    final when = DateTime.now().add(const Duration(seconds: 10));
+    await _scheduleOnce(
+      id: 999,
+      title: 'test',
+      body: 'did it work?',
+      scheduledDate: when,
+      details: _notifDetails,
+    );
+    print('>>> test notification scheduled for $when');
+  }
+
+  // Spread id across a wider space to avoid collisions between slots
+  static int _idBase(AppEvent event) {
+    final nameHash = event.name.hashCode & 0xFFFF;
+    final timeHash = (event.dateTime.millisecondsSinceEpoch ~/ 60000) & 0x1FFF;
+    // Each event needs up to ~108 consecutive ids; keep within positive int32
+    return ((nameHash << 13) ^ timeHash).abs() % 0x3FFFF * 200;
+  }
 }

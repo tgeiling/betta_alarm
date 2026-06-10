@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:alarm/alarm.dart';
 
 class AlarmService {
@@ -13,10 +14,11 @@ class AlarmService {
     return AlarmSettings(
       id: id,
       dateTime: wakeAt,
-      assetAudioPath: 'assets/alarm.mp3',
+      assetAudioPath: 'assets/inidan_alarm.mp3',
       loopAudio: true,
       vibrate: true,
-      warningNotificationOnKill: true,
+      // FIX: must be false on Android — true causes a crash on Android
+      warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,
       notificationSettings: NotificationSettings(
         title: title,
@@ -26,6 +28,7 @@ class AlarmService {
       volumeSettings: VolumeSettings.fade(
         volume: 0.8,
         fadeDuration: const Duration(seconds: 10),
+        volumeEnforced: true,
       ),
     );
   }

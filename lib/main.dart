@@ -16,6 +16,7 @@ void main() async {
   );
   await Alarm.init();
   await NotificationService.init();
+  await NotificationService.debugTestNotification();
   runApp(const BettaAlarmApp());
 }
 
