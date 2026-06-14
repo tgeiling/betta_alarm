@@ -19,7 +19,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   late DateTime _date;
   late TimeOfDay _time;
   late EventAlertMode _alertMode;
-  late bool _autoAlarm;
   late bool _customAlarm;
   late Set<int> _customAlarmOffsets;
   late bool _recurring;
@@ -35,7 +34,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _date = e.dateTime;
     _time = TimeOfDay(hour: e.dateTime.hour, minute: e.dateTime.minute);
     _alertMode = e.alertMode;
-    _autoAlarm = e.autoAlarm;
     _customAlarm = e.customAlarm;
     _customAlarmOffsets = Set.from(e.customAlarmOffsets);
     _recurring = e.recurring;
@@ -141,7 +139,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       note: _noteCtrl.text.trim().toLowerCase(),
       dateTime: dt,
       alertMode: _alertMode,
-      autoAlarm: _autoAlarm,
       customAlarm: _customAlarm,
       customAlarmOffsets: _customAlarmOffsets.toList(),
       recurring: _recurring,
@@ -638,12 +635,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     const SizedBox(height: 16),
                     _divider(),
                     _alertModeRow(),
-                    _divider(),
-                    _toggle(
-                      'auto (15 min before)',
-                      _autoAlarm,
-                      (v) => setState(() => _autoAlarm = v),
-                    ),
                     _divider(),
                     _toggle(
                       'custom offsets',

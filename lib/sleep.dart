@@ -136,7 +136,6 @@ class SleepService {
       place: _homePlace,
       note: 'scheduled by sleep mode',
       dateTime: wakeAt,
-      autoAlarm: true,
     );
 
     // Save wake event

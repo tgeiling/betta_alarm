@@ -14,10 +14,9 @@ class AlarmService {
     return AlarmSettings(
       id: id,
       dateTime: wakeAt,
-      assetAudioPath: 'assets/inidan_alarm.mp3',
+      assetAudioPath: 'assets/indian_alarm.mp3',
       loopAudio: true,
       vibrate: true,
-      // FIX: must be false on Android — true causes a crash on Android
       warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,
       notificationSettings: NotificationSettings(

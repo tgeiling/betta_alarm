@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:alarm/alarm.dart' as alarm_pkg;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -53,19 +54,16 @@ class NotificationService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    // v21: initialize uses named `settings:` param
     await _plugin.initialize(
       settings: const InitializationSettings(android: android, iOS: ios),
     );
 
-    // Request permissions on Android 13+
     await _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestNotificationsPermission();
 
-    // Request exact alarm permission on Android 12+
     await _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -109,7 +107,7 @@ class NotificationService {
     final eventDt = event.dateTime;
     final now = DateTime.now();
 
-    // Always fire AT the event time (slot idBase)
+    // Always fire at the event time (slot idBase)
     if (eventDt.isAfter(now)) {
       await _scheduleOnce(
         id: idBase,
@@ -118,20 +116,6 @@ class NotificationService {
         scheduledDate: eventDt,
         details: _notifDetails,
       );
-    }
-
-    // Auto 15-min-before (slot idBase + 50)
-    if (event.autoAlarm) {
-      final notifyAt = eventDt.subtract(const Duration(minutes: 15));
-      if (notifyAt.isAfter(now)) {
-        await _scheduleOnce(
-          id: idBase + 50,
-          title: event.name,
-          body: 'in 15 min${event.place.isNotEmpty ? ' · ${event.place}' : ''}',
-          scheduledDate: notifyAt,
-          details: _notifDetails,
-        );
-      }
     }
 
     // Custom offsets (slots idBase+1 … idBase+6)
@@ -170,7 +154,7 @@ class NotificationService {
     final eventDt = event.dateTime;
     final now = DateTime.now();
 
-    // Always fire AT the event time (slot idBase)
+    // Always fire at the event time (slot idBase)
     if (eventDt.isAfter(now)) {
       await alarm_pkg.Alarm.set(
         alarmSettings: _buildAlarmSettings(
@@ -180,22 +164,6 @@ class NotificationService {
           wakeAt: eventDt,
         ),
       );
-    }
-
-    // Auto 15-min-before (slot idBase + 50)
-    if (event.autoAlarm) {
-      final ringAt = eventDt.subtract(const Duration(minutes: 15));
-      if (ringAt.isAfter(now)) {
-        await alarm_pkg.Alarm.set(
-          alarmSettings: _buildAlarmSettings(
-            id: idBase + 50,
-            title: event.name,
-            body:
-                'in 15 min${event.place.isNotEmpty ? ' · ${event.place}' : ''}',
-            wakeAt: ringAt,
-          ),
-        );
-      }
     }
 
     // Custom offsets (slots idBase+1 … idBase+6)
@@ -223,13 +191,13 @@ class NotificationService {
     required String body,
     required DateTime wakeAt,
   }) {
-    // alarm ^5.x: warningNotificationOnKill was removed — do not include it
     return alarm_pkg.AlarmSettings(
       id: id,
       dateTime: wakeAt,
-      assetAudioPath: 'assets/alarm.mp3',
+      assetAudioPath: 'assets/indian_alarm.mp3',
       loopAudio: true,
       vibrate: true,
+      warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,
       notificationSettings: alarm_pkg.NotificationSettings(
         title: title,
@@ -239,15 +207,14 @@ class NotificationService {
       volumeSettings: alarm_pkg.VolumeSettings.fade(
         volume: 0.8,
         fadeDuration: const Duration(seconds: 10),
+        volumeEnforced: true,
       ),
     );
   }
 
   static Future<void> cancelForEvent(AppEvent event) async {
     final idBase = _idBase(event);
-    // v21: cancel() uses named `id:` param
     await _plugin.cancel(id: idBase);
-    await _plugin.cancel(id: idBase + 50);
     for (int i = 1; i <= 6; i++) {
       await _plugin.cancel(id: idBase + i);
     }
@@ -255,7 +222,6 @@ class NotificationService {
       await _plugin.cancel(id: idBase + 100 + day);
     }
     await alarm_pkg.Alarm.stop(idBase);
-    await alarm_pkg.Alarm.stop(idBase + 50);
     for (int i = 1; i <= 6; i++) {
       await alarm_pkg.Alarm.stop(idBase + i);
     }
@@ -270,8 +236,6 @@ class NotificationService {
   }) async {
     final tzDate = tz.TZDateTime.from(scheduledDate, _loc);
     try {
-      // v21: all named params; NotificationDetails is positional (3rd arg after body)
-      // but the actual v21 signature has it as named `notificationDetails:`
       await _plugin.zonedSchedule(
         id: id,
         title: title,
@@ -339,23 +303,11 @@ class NotificationService {
     }
   }
 
-  static Future<void> debugTestNotification() async {
-    final when = DateTime.now().add(const Duration(seconds: 10));
-    await _scheduleOnce(
-      id: 999,
-      title: 'test',
-      body: 'did it work?',
-      scheduledDate: when,
-      details: _notifDetails,
-    );
-    print('>>> test notification scheduled for $when');
-  }
-
-  // Spread id across a wider space to avoid collisions between slots
   static int _idBase(AppEvent event) {
-    final nameHash = event.name.hashCode & 0xFFFF;
-    final timeHash = (event.dateTime.millisecondsSinceEpoch ~/ 60000) & 0x1FFF;
-    // Each event needs up to ~108 consecutive ids; keep within positive int32
-    return ((nameHash << 13) ^ timeHash).abs() % 0x3FFFF * 200;
+    final nameHash = event.name.hashCode.abs() % 0xFFFF;
+    final timeHash = (event.dateTime.millisecondsSinceEpoch ~/ 60000) % 0xFFFF;
+    // Keep idBase small enough that idBase + 107 stays within int32
+    // Max idBase = 0xFFFF = 65535; 65535 + 107 = 65642, well within range
+    return (nameHash ^ timeHash) % 0xFFFF;
   }
 }

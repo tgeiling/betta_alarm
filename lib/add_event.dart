@@ -16,7 +16,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
   EventAlertMode _alertMode = EventAlertMode.notification;
-  bool _autoAlarm = true;
   bool _customAlarm = false;
   Set<int> _customAlarmOffsets = {};
   bool _recurring = false;
@@ -113,7 +112,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
       note: _noteCtrl.text.trim().toLowerCase(),
       dateTime: dt,
       alertMode: _alertMode,
-      autoAlarm: _autoAlarm,
       customAlarm: _customAlarm,
       customAlarmOffsets: _customAlarmOffsets.toList(),
       recurring: _recurring,
@@ -537,12 +535,6 @@ class _AddEventScreenState extends State<AddEventScreen> {
                     const SizedBox(height: 16),
                     _divider(),
                     _alertModeRow(),
-                    _divider(),
-                    _toggle(
-                      'auto (15 min before)',
-                      _autoAlarm,
-                      (v) => setState(() => _autoAlarm = v),
-                    ),
                     _divider(),
                     _toggle(
                       'custom offsets',

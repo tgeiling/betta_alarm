@@ -16,7 +16,6 @@ void main() async {
   );
   await Alarm.init();
   await NotificationService.init();
-  await NotificationService.debugTestNotification();
   runApp(const BettaAlarmApp());
 }
 
@@ -194,9 +193,6 @@ class AppEvent {
   final String note;
   final DateTime dateTime;
 
-  /// Whether the 15-min-before auto-reminder is enabled.
-  final bool autoAlarm;
-
   /// Whether custom offset reminders are enabled.
   final bool customAlarm;
   final List<int> customAlarmOffsets;
@@ -212,7 +208,6 @@ class AppEvent {
     required this.place,
     required this.note,
     required this.dateTime,
-    this.autoAlarm = true,
     this.customAlarm = false,
     this.customAlarmOffsets = const [],
     this.recurring = false,
@@ -225,7 +220,6 @@ class AppEvent {
     String? place,
     String? note,
     DateTime? dateTime,
-    bool? autoAlarm,
     bool? customAlarm,
     List<int>? customAlarmOffsets,
     bool? recurring,
@@ -237,7 +231,6 @@ class AppEvent {
       place: place ?? this.place,
       note: note ?? this.note,
       dateTime: dateTime ?? this.dateTime,
-      autoAlarm: autoAlarm ?? this.autoAlarm,
       customAlarm: customAlarm ?? this.customAlarm,
       customAlarmOffsets: customAlarmOffsets ?? this.customAlarmOffsets,
       recurring: recurring ?? this.recurring,
@@ -251,7 +244,6 @@ class AppEvent {
     'place': place,
     'note': note,
     'dateTime': dateTime.toIso8601String(),
-    'autoAlarm': autoAlarm,
     'customAlarm': customAlarm,
     'customAlarmOffsets': customAlarmOffsets,
     'recurring': recurring,
@@ -264,7 +256,6 @@ class AppEvent {
     place: json['place'] as String,
     note: json['note'] as String,
     dateTime: DateTime.parse(json['dateTime'] as String),
-    autoAlarm: json['autoAlarm'] as bool? ?? true,
     customAlarm: json['customAlarm'] as bool? ?? false,
     customAlarmOffsets:
         (json['customAlarmOffsets'] as List<dynamic>?)
