@@ -133,7 +133,7 @@ class NotificationService {
       await _scheduleOnce(
         id: idBase,
         title: event.name,
-        body: event.place.isNotEmpty ? event.place : 'now',
+        body: event.place.isNotEmpty ? event.note : '',
         scheduledDate: eventDt,
         details: _notifDetails,
       );
@@ -199,7 +199,7 @@ class NotificationService {
         alarmSettings: _buildAlarmSettings(
           id: idBase,
           title: event.name,
-          body: event.place.isNotEmpty ? event.place : 'now',
+          body: event.place.isNotEmpty ? event.note : '',
           wakeAt: eventDt,
         ),
       );
