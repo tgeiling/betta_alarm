@@ -155,6 +155,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
     await StorageService.saveEvents(all);
     await NotificationService.scheduleForEvent(updated);
+    print("################");
     if (mounted) Navigator.pop(context, updated);
   }
 

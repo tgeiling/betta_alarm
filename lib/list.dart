@@ -4,6 +4,7 @@ import 'event_detail.dart';
 import 'add_event.dart';
 import 'storage.dart';
 import 'sleep.dart';
+import 'notification.dart';
 
 class EventListScreen extends StatefulWidget {
   const EventListScreen({super.key});
@@ -30,6 +31,7 @@ class _EventListScreenState extends State<EventListScreen> {
     final updated = [..._events, event];
     await StorageService.saveEvents(updated);
     setState(() => _events = updated);
+    await NotificationService.scheduleForEvent(event);
     await _checkSleepConflict(event);
   }
 

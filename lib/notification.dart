@@ -47,6 +47,9 @@ class NotificationService {
     tz_data.initializeTimeZones();
     _location = _resolveLocalTimezone();
     tz.setLocalLocation(_location!);
+    print(
+      '[NotificationService] init: timezone resolved to ${_location!.name}',
+    );
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -57,6 +60,7 @@ class NotificationService {
     await _plugin.initialize(
       settings: const InitializationSettings(android: android, iOS: ios),
     );
+    print('[NotificationService] init: plugin initialized');
 
     await _plugin
         .resolvePlatformSpecificImplementation<
@@ -69,16 +73,12 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestExactAlarmsPermission();
+
+    print('[NotificationService] init: permissions requested');
   }
 
   static tz.Location _resolveLocalTimezone() {
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    for (final loc in tz.timeZoneDatabase.locations.values) {
-      if (tz.TZDateTime.now(loc).timeZoneOffset.inMinutes == offsetMinutes) {
-        return loc;
-      }
-    }
-    return tz.UTC;
+    return tz.getLocation('Europe/Berlin');
   }
 
   static tz.Location get _loc {
@@ -88,10 +88,20 @@ class NotificationService {
   }
 
   static Future<void> scheduleForEvent(AppEvent event) async {
-    await cancelForEvent(event);
-    if (event.alertMode == EventAlertMode.none) return;
-
     final idBase = _idBase(event);
+    print('@[NotificationService] scheduleForEvent: "${event.name}"');
+    print('@  alertMode=${event.alertMode}, idBase=$idBase');
+    print('@  eventDateTime=${event.dateTime.toIso8601String()}');
+    print('@  now=${DateTime.now().toIso8601String()}');
+    print(
+      '@  minutesUntilEvent=${event.dateTime.difference(DateTime.now()).inMinutes}',
+    );
+
+    await cancelForEvent(event);
+    if (event.alertMode == EventAlertMode.none) {
+      print('@  -> alertMode is none, skipping scheduling');
+      return;
+    }
 
     if (event.alertMode == EventAlertMode.alarm) {
       await _scheduleAlarmForEvent(event, idBase);
@@ -107,8 +117,19 @@ class NotificationService {
     final eventDt = event.dateTime;
     final now = DateTime.now();
 
-    // Always fire at the event time (slot idBase)
+    print(
+      '@[NotificationService] _scheduleNotificationsForEvent: "${event.name}"',
+    );
+    print('@  eventDt=$eventDt, now=$now');
+    print(
+      '@  customAlarm=${event.customAlarm}, offsets=${event.customAlarm ? event.customAlarmOffsets : []}',
+    );
+    print(
+      '@  recurring=${event.recurring}, days=${event.recurring ? event.recurringDays : []}',
+    );
+
     if (eventDt.isAfter(now)) {
+      print('@  -> scheduling main notification at $eventDt (id=$idBase)');
       await _scheduleOnce(
         id: idBase,
         title: event.name,
@@ -116,14 +137,20 @@ class NotificationService {
         scheduledDate: eventDt,
         details: _notifDetails,
       );
+    } else {
+      print(
+        '@  -> SKIPPED main notification: eventDt ($eventDt) is NOT after now ($now)',
+      );
     }
 
-    // Custom offsets (slots idBase+1 … idBase+6)
     if (event.customAlarm) {
       for (int i = 0; i < event.customAlarmOffsets.length; i++) {
         final offset = event.customAlarmOffsets[i];
         final notifyAt = eventDt.subtract(Duration(minutes: offset));
         if (notifyAt.isAfter(now)) {
+          print(
+            '@  -> scheduling offset notification: -${offset}min at $notifyAt (id=${idBase + 1 + i})',
+          );
           await _scheduleOnce(
             id: idBase + 1 + i,
             title: event.name,
@@ -131,13 +158,19 @@ class NotificationService {
             scheduledDate: notifyAt,
             details: _notifDetails,
           );
+        } else {
+          print(
+            '@  -> SKIPPED offset notification: -${offset}min notifyAt ($notifyAt) is NOT after now ($now)',
+          );
         }
       }
     }
 
-    // Recurring weekly (slots idBase+100+weekday)
     if (event.recurring && event.recurringDays.isNotEmpty) {
       for (final day in event.recurringDays) {
+        print(
+          '@  -> scheduling weekly recurring on weekday=$day at ${eventDt.hour}:${eventDt.minute} (id=${idBase + 100 + day})',
+        );
         await _scheduleWeekly(
           id: idBase + 100 + day,
           title: event.name,
@@ -154,8 +187,14 @@ class NotificationService {
     final eventDt = event.dateTime;
     final now = DateTime.now();
 
-    // Always fire at the event time (slot idBase)
+    print('@[NotificationService] _scheduleAlarmForEvent: "${event.name}"');
+    print('@  eventDt=$eventDt, now=$now');
+    print(
+      '@  customAlarm=${event.customAlarm}, offsets=${event.customAlarm ? event.customAlarmOffsets : []}',
+    );
+
     if (eventDt.isAfter(now)) {
+      print('@  -> setting alarm at $eventDt (id=$idBase)');
       await alarm_pkg.Alarm.set(
         alarmSettings: _buildAlarmSettings(
           id: idBase,
@@ -164,14 +203,20 @@ class NotificationService {
           wakeAt: eventDt,
         ),
       );
+    } else {
+      print(
+        '@  -> SKIPPED main alarm: eventDt ($eventDt) is NOT after now ($now)',
+      );
     }
 
-    // Custom offsets (slots idBase+1 … idBase+6)
     if (event.customAlarm) {
       for (int i = 0; i < event.customAlarmOffsets.length; i++) {
         final offset = event.customAlarmOffsets[i];
         final ringAt = eventDt.subtract(Duration(minutes: offset));
         if (ringAt.isAfter(now)) {
+          print(
+            '@  -> setting offset alarm: -${offset}min at $ringAt (id=${idBase + 1 + i})',
+          );
           await alarm_pkg.Alarm.set(
             alarmSettings: _buildAlarmSettings(
               id: idBase + 1 + i,
@@ -179,6 +224,10 @@ class NotificationService {
               body: '${AlarmOffset.label(offset)} before',
               wakeAt: ringAt,
             ),
+          );
+        } else {
+          print(
+            '@  -> SKIPPED offset alarm: -${offset}min ringAt ($ringAt) is NOT after now ($now)',
           );
         }
       }
@@ -214,6 +263,9 @@ class NotificationService {
 
   static Future<void> cancelForEvent(AppEvent event) async {
     final idBase = _idBase(event);
+    print(
+      '@[NotificationService] cancelForEvent: "${event.name}" (idBase=$idBase)',
+    );
     await _plugin.cancel(id: idBase);
     for (int i = 1; i <= 6; i++) {
       await _plugin.cancel(id: idBase + i);
@@ -235,6 +287,10 @@ class NotificationService {
     required NotificationDetails details,
   }) async {
     final tzDate = tz.TZDateTime.from(scheduledDate, _loc);
+    print('@[NotificationService] _scheduleOnce: id=$id, title="$title"');
+    print(
+      '@  scheduledDate=$scheduledDate -> tzDate=$tzDate (tz=${_loc.name})',
+    );
     try {
       await _plugin.zonedSchedule(
         id: id,
@@ -244,7 +300,9 @@ class NotificationService {
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
-    } catch (_) {
+      print('@  -> zonedSchedule SUCCESS (exact)');
+    } catch (e) {
+      print('@  -> zonedSchedule FAILED (exact): $e — retrying with inexact');
       await _plugin.zonedSchedule(
         id: id,
         title: title,
@@ -253,6 +311,7 @@ class NotificationService {
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
+      print('@  -> zonedSchedule SUCCESS (inexact)');
     }
   }
 
@@ -280,6 +339,10 @@ class NotificationService {
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 7));
     }
+    print(
+      '@[NotificationService] _scheduleWeekly: id=$id, weekday=$weekday, time=$hour:$minute',
+    );
+    print('@  first occurrence scheduled for: $scheduled');
     try {
       await _plugin.zonedSchedule(
         id: id,
@@ -290,7 +353,11 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
-    } catch (_) {
+      print('@  -> weekly zonedSchedule SUCCESS (exact)');
+    } catch (e) {
+      print(
+        '@  -> weekly zonedSchedule FAILED (exact): $e — retrying with inexact',
+      );
       await _plugin.zonedSchedule(
         id: id,
         title: title,
@@ -300,14 +367,17 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
+      print('@  -> weekly zonedSchedule SUCCESS (inexact)');
     }
   }
 
   static int _idBase(AppEvent event) {
     final nameHash = event.name.hashCode.abs() % 0xFFFF;
     final timeHash = (event.dateTime.millisecondsSinceEpoch ~/ 60000) % 0xFFFF;
-    // Keep idBase small enough that idBase + 107 stays within int32
-    // Max idBase = 0xFFFF = 65535; 65535 + 107 = 65642, well within range
-    return (nameHash ^ timeHash) % 0xFFFF;
+    final id = (nameHash ^ timeHash) % 0xFFFF;
+    print(
+      '@[NotificationService] _idBase: name="${event.name}", nameHash=$nameHash, timeHash=$timeHash -> idBase=$id',
+    );
+    return id;
   }
 }

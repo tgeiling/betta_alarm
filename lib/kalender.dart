@@ -267,104 +267,6 @@ class _KalenderScreenState extends State<KalenderScreen> {
     );
   }
 
-  Future<void> _testNotification() async {
-    Navigator.pop(context);
-    final fireAt = DateTime.now().add(const Duration(seconds: 5));
-    final event = AppEvent(
-      name: 'test notification',
-      place: 'debug',
-      note: '',
-      dateTime: fireAt,
-      alertMode: EventAlertMode.notification,
-    );
-    await NotificationService.scheduleForEvent(event);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'notification in 5s',
-          style: TextStyle(fontFamily: 'PixelifySans', fontSize: 12),
-        ),
-        duration: Duration(seconds: 3),
-        backgroundColor: AppColors.brown,
-      ),
-    );
-  }
-
-  Future<void> _testAlarm() async {
-    Navigator.pop(context);
-    final fireAt = DateTime.now().add(const Duration(seconds: 5));
-    await alarm_pkg.Alarm.set(
-      alarmSettings: alarm_pkg.AlarmSettings(
-        id: 999999,
-        dateTime: fireAt,
-        assetAudioPath: 'assets/alarm.mp3',
-        loopAudio: false,
-        vibrate: true,
-        warningNotificationOnKill: false,
-        androidFullScreenIntent: true,
-        notificationSettings: const alarm_pkg.NotificationSettings(
-          title: 'test alarm',
-          body: 'debug — alarm fired',
-          stopButton: 'stop',
-        ),
-        volumeSettings: alarm_pkg.VolumeSettings.fixed(volume: 0.8),
-      ),
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'alarm in 5s',
-          style: TextStyle(fontFamily: 'PixelifySans', fontSize: 12),
-        ),
-        duration: Duration(seconds: 3),
-        backgroundColor: AppColors.brown,
-      ),
-    );
-  }
-
-  void _showDebugDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.brown,
-        title: const Text(
-          'debug',
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'PixelifySans',
-            fontSize: 13,
-          ),
-        ),
-        content: const Text(
-          'fire a test in 5 seconds',
-          style: TextStyle(
-            color: Colors.white54,
-            fontFamily: 'PixelifySans',
-            fontSize: 11,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _testNotification,
-            child: const Text(
-              'notification',
-              style: TextStyle(color: Colors.white, fontFamily: 'PixelifySans'),
-            ),
-          ),
-          TextButton(
-            onPressed: _testAlarm,
-            child: const Text(
-              'alarm',
-              style: TextStyle(color: Colors.white, fontFamily: 'PixelifySans'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final days = _buildCalendarDays();
@@ -394,35 +296,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _showDebugDialog,
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.35),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'test',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 10,
-                              fontFamily: 'PixelifySans',
-                            ),
-                          ),
-                        ),
-                      ),
-                      _NavButton(label: '>', onTap: _nextMonth),
-                    ],
-                  ),
+                  _NavButton(label: '>', onTap: _nextMonth),
                 ],
               ),
               const SizedBox(height: 12),
