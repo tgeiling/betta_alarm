@@ -133,7 +133,7 @@ class NotificationService {
       await _scheduleOnce(
         id: idBase,
         title: event.name,
-        body: event.place.isNotEmpty ? event.note : '',
+        body: event.note.isNotEmpty ? event.note : '',
         scheduledDate: eventDt,
         details: _notifDetails,
       );
@@ -199,7 +199,7 @@ class NotificationService {
         alarmSettings: _buildAlarmSettings(
           id: idBase,
           title: event.name,
-          body: event.place.isNotEmpty ? event.note : '',
+          body: event.note.isNotEmpty ? event.note : '',
           wakeAt: eventDt,
         ),
       );
@@ -244,7 +244,7 @@ class NotificationService {
       id: id,
       dateTime: wakeAt,
       assetAudioPath: 'assets/indian_alarm.mp3',
-      loopAudio: true,
+      loopAudio: false,
       vibrate: true,
       warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,

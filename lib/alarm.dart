@@ -15,7 +15,7 @@ class AlarmService {
       id: id,
       dateTime: wakeAt,
       assetAudioPath: 'assets/indian_alarm.mp3',
-      loopAudio: true,
+      loopAudio: false,
       vibrate: true,
       warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,
